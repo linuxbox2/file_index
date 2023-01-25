@@ -1,0 +1,31 @@
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+// vim: ts=8 sw=2 smarttab ft=cpp
+#include "bucket_cache.h"
+
+bool Bucket::reclaim(const cohort::lru::ObjectFactory* newobj_fac) {
+    auto factory = dynamic_cast<const Bucket::Factory*>(newobj_fac);
+    if (factory == nullptr) {
+        return false;
+    }
+#if 0
+    /* make sure the reclaiming object is the same partiton with newobject factory,
+        * then we can recycle the object, and replace with newobject */
+
+    /* XXXX this upstream analysis has never made sense--we don't need the new
+        * object to be in the same partition in order to remove the original object
+        * from its original partition */
+    if (! bc->cache.is_same_partition(name, factory->name)) [[unlikely]]  {
+        return false;
+    }
+#endif
+    /* in the non-delete case, handle may still be in handle table */
+    if (name_hook.is_linked()) {
+        /* in this case, we are being called from a context which holds
+        * the partition lock */
+        bc->cache.remove(hk, this, bucket_avl_cache::FLAG_NONE);
+    }
+
+    /* TODO: discard lmdb data associated with this bucket */
+
+    return true;
+} /* reclaim */

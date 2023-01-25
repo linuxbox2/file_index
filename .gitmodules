@@ -1,0 +1,6 @@
+[submodule "fmt"]
+	path = fmt
+	url = https://github.com/ceph/fmt.git
+[submodule "lmdb-safe"]
+	path = lmdb-safe
+	url = https://github.com/ahupowerdns/lmdb-safe.git
