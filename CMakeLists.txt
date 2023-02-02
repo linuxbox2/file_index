@@ -15,6 +15,6 @@ target_include_directories(file_index PUBLIC
     "${CMAKE_SOURCE_DIR}/lmdb-safe")
 
 target_link_libraries(file_index
-    Boost::filesystem xxhash lmdb)
+    xxhash lmdb)
 
 set_property(TARGET file_index PROPERTY CXX_STANDARD 20)
