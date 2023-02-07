@@ -6,6 +6,7 @@
 #include <fstream>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <random>
 #include <stdint.h>
 
@@ -54,9 +55,7 @@ TEST(BucketCache, SetupTDir1)
       ofs.close();
     }
   } /* for 1M */
-  
-  
-}
+} /* SetupTDir1 */
 
 TEST(BucketCache, InitBucketCache)
 {
@@ -78,6 +77,11 @@ TEST(BucketCache, ListTDir3)
   bc->list_bucket(tdir1, bucket1_marker); // XXX need a lambda to handle the output
 }
 
+TEST(BucketCache, TearDownBucketCache) 
+{
+  delete bc;
+  bc = nullptr;
+}
 
 int main (int argc, char *argv[])
 {
