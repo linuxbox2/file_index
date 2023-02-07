@@ -3,6 +3,7 @@
 
 #include "bucket_cache.h"
 #include <stdint.h>
+#include <gtest/gtest.h>
 
 namespace {
   string bucket_root = "bucket_root";
@@ -14,8 +15,18 @@ namespace {
   string bucket1_marker = ""; // start at the beginning
 } // anonymous ns
 
+TEST(BucketCache, SetupTDir1)
+{
+}
+
+TEST(BucketCache, ListTDir1)
+{
+  BucketCache bc{bucket_root, database_root, max_buckets, max_lanes, lmdb_count};
+  bc.list_bucket(bucket1_name, bucket1_marker); // XXX need a lambda to handle the output
+}
+
 int main (int argc, char *argv[])
 {
-    BucketCache bc{bucket_root, database_root, max_buckets, max_lanes, lmdb_count};
-    bc.list_bucket(bucket1_name, bucket1_marker); // XXX need a lambda to handle the output
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }
