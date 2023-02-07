@@ -27,8 +27,6 @@
 namespace bi = boost::intrusive;
 namespace sf = std::filesystem;
 
-using namespace std; // XXX
-
 typedef bi::link_mode<bi::safe_link> link_mode; /* XXX normal */
 typedef bi::avl_set_member_hook<link_mode> member_hook_t;
 
@@ -56,7 +54,7 @@ struct Bucket : public cohort::lru::Object
     Bucket(BucketCache* bc, std::string& name, uint64_t hk)
     : bc(bc), name(name), hk(hk) {}
 
-    void set_env(shared_ptr<MDBEnv>& _env, MDBDbi& _dbi) {
+    void set_env(std::shared_ptr<MDBEnv>& _env, MDBDbi& _dbi) {
         env = _env;
         dbi = _dbi;
     }
@@ -170,7 +168,7 @@ struct BucketCache
             }
         }
 
-        inline shared_ptr<MDBEnv>& get_sp_env(Bucket* bucket)  {
+        inline std::shared_ptr<MDBEnv>& get_sp_env(Bucket* bucket)  {
             return envs[(bucket->hk % lmdb_count)];
         }
 
@@ -191,15 +189,15 @@ struct BucketCache
     rp(bucket_root)
     {
         if (! (sf::exists(rp) && sf::is_directory(rp))) {
-            cerr << fmt::format("{} bucket root {} invalid", __func__,
-                bucket_root) << endl;
+            std::cerr << fmt::format("{} bucket root {} invalid", __func__,
+                bucket_root) << std::endl;
             exit(1);
         }
 
         sf::path dp{database_root};
         if (! (sf::exists(dp) && sf::is_directory(dp))) {
-            cerr << fmt::format("{} database root {} invalid", __func__,
-                database_root) << endl;
+            std::cerr << fmt::format("{} database root {} invalid", __func__,
+                database_root) << std::endl;
             exit(1);
         }
     }
@@ -272,9 +270,9 @@ retry:
     {
         sf::path bp{rp / bucket->name};
         if (! (sf::exists(rp) && sf::is_directory(rp))) {
-            cerr << fmt::format("{} bucket {} invalid", __func__, bucket->name)
-                << endl;
-            exit(1);
+	  std::cerr << fmt::format("{} bucket {} invalid", __func__, bucket->name)
+		    << std::endl;
+	  exit(1);
         }
         /* TODO: get rwtransaction and sync fill */
         auto txn = bucket->env->getRWTransaction();

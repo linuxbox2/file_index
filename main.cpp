@@ -2,17 +2,19 @@
 // vim: ts=8 sw=2 smarttab ft=cpp
 
 #include "bucket_cache.h"
+#include <filesystem>
+#include <string>
 #include <stdint.h>
 #include <gtest/gtest.h>
 
 namespace {
-  string bucket_root = "bucket_root";
-  string database_root = "lmdb_root";
+  std::string bucket_root = "bucket_root";
+  std::string database_root = "lmdb_root";
   uint32_t max_buckets = 100;
   uint8_t max_lanes = 1;
   uint8_t lmdb_count = 3;
-  string bucket1_name = "stanley";
-  string bucket1_marker = ""; // start at the beginning
+  std::string bucket1_name = "stanley";
+  std::string bucket1_marker = ""; // start at the beginning
 } // anonymous ns
 
 TEST(BucketCache, SetupTDir1)
