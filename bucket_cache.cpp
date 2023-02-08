@@ -18,14 +18,23 @@ bool Bucket::reclaim(const cohort::lru::ObjectFactory* newobj_fac) {
         return false;
     }
 #endif
-    /* in the non-delete case, handle may still be in handle table */
-    if (name_hook.is_linked()) {
-        /* in this case, we are being called from a context which holds
-        * the partition lock */
-        bc->cache.remove(hk, this, bucket_avl_cache::FLAG_NONE);
+    {
+      /* in this case, we are being called from a context which holds
+       * the partition lock, but may be still in use */
+      lock_guard{mtx};
+      if (! deleted()) {
+	flags |= FLAG_DELETED;
+
+	/* XXX we MUST still be linked, so hook check is
+	 * redundant--maybe it hopes (!) to compensate for "still in use" above */
+	if (name_hook.is_linked()) {
+	  bc->cache.remove(hk, this, bucket_avl_cache::FLAG_NONE);
+	}
+
+	/* discard lmdb data associated with this bucket */
+	auto txn = env->getRWTransaction();
+	mdb_drop(*txn, dbi, 0); /* apparently, does not require commit */
+      } /* ! deleted */
     }
-
-    /* TODO: discard lmdb data associated with this bucket */
-
     return true;
 } /* reclaim */

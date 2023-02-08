@@ -34,91 +34,100 @@ struct BucketCache;
 
 struct Bucket : public cohort::lru::Object
 {
-    static constexpr uint32_t FLAG_NONE     = 0x0000;
-    static constexpr uint32_t FLAG_FILLED   = 0x0001;
-    static constexpr uint64_t seed = 8675309;
+  using lock_guard = std::lock_guard<std::mutex>;
+  using unique_lock = std::unique_lock<std::mutex>;
 
+  static constexpr uint32_t FLAG_NONE     = 0x0000;
+  static constexpr uint32_t FLAG_FILLED   = 0x0001;
+  static constexpr uint32_t FLAG_DELETED  = 0x0002;
+  
+  static constexpr uint64_t seed = 8675309;
+
+  BucketCache* bc;
+  std::string name;
+  std::shared_ptr<MDBEnv> env;
+  MDBDbi dbi;
+  uint64_t hk;
+  member_hook_t name_hook;
+
+  // XXX clean this up
+  std::mutex mtx; // XXX Adam's preferred shared mtx?
+  std::condition_variable cv;
+  uint32_t flags;
+
+public:
+  Bucket(BucketCache* bc, std::string& name, uint64_t hk)
+    : bc(bc), name(name), hk(hk), flags(FLAG_NONE) {}
+
+  void set_env(std::shared_ptr<MDBEnv>& _env, MDBDbi& _dbi) {
+    env = _env;
+    dbi = _dbi;
+  }
+
+  inline bool deleted() const {
+    return flags & FLAG_DELETED;
+  }
+
+  class Factory : public cohort::lru::ObjectFactory
+  {
+  public:
     BucketCache* bc;
-    std::string name;
-    std::shared_ptr<MDBEnv> env;
-    MDBDbi dbi;
+    std::string& name;
     uint64_t hk;
-    member_hook_t name_hook;
-
-    // XXX clean this up
-    std::mutex mtx; // XXX Adam's preferred shared mtx?
-    std::condition_variable cv;
     uint32_t flags;
 
-    public:
-    Bucket(BucketCache* bc, std::string& name, uint64_t hk)
-    : bc(bc), name(name), hk(hk) {}
-
-    void set_env(std::shared_ptr<MDBEnv>& _env, MDBDbi& _dbi) {
-        env = _env;
-        dbi = _dbi;
+    Factory() = delete;
+    Factory(BucketCache *bc, std::string& name)
+      : bc(bc), name(name), flags(FLAG_NONE) {
+      hk = XXH64(name.c_str(), name.length(), Bucket::seed);
     }
 
-    class Factory : public cohort::lru::ObjectFactory
-    {
-    public:
-        BucketCache* bc;
-        std::string& name;
-        uint64_t hk;
-        uint32_t flags;
+    void recycle (cohort::lru::Object* o) override {
+      /* re-use an existing object */
+      o->~Object(); // call lru::Object virtual dtor
+      // placement new!
+      new (o) Bucket(bc, name, hk);
+    }
 
-        Factory() = delete;
-        Factory(BucketCache *bc, std::string& name)
-        : bc(bc), name(name), flags(FLAG_NONE) {
-            hk = XXH64(name.c_str(), name.length(), Bucket::seed);
-        }
+    cohort::lru::Object* alloc() override {
+      return new Bucket(bc, name, hk);
+    }
+  }; /* Factory */
 
-        void recycle (cohort::lru::Object* o) override {
-	        /* re-use an existing object */
-	        o->~Object(); // call lru::Object virtual dtor
-	        // placement new!
-	        new (o) Bucket(bc, name, hk);
-        }
+  struct BucketLT
+  {
+    // for internal ordering
+    bool operator()(const Bucket& lhs, const Bucket& rhs) const
+      { return (lhs.name < rhs.name); }
 
-        cohort::lru::Object* alloc() override {
-            return new Bucket(bc, name, hk);
-        }
-    }; /* Factory */
+    // for external search by name
+    bool operator()(const std::string& k, const Bucket& rhs) const
+      { return k < rhs.name; }
 
-    struct BucketLT
-    {
-        // for internal ordering
-        bool operator()(const Bucket& lhs, const Bucket& rhs) const
-    { return (lhs.name < rhs.name); }
+    bool operator()(const Bucket& lhs, const std::string& k) const
+      { return lhs.name < k; }
+  };
 
-        // for external search by name
-        bool operator()(const std::string& k, const Bucket& rhs) const
-    { return k < rhs.name; }
+  struct BucketEQ
+  {
+    bool operator()(const Bucket& lhs, const Bucket& rhs) const
+      { return (lhs.name == rhs.name); }
 
-        bool operator()(const Bucket& lhs, const std::string& k) const
-    { return lhs.name < k; }
-    };
+    bool operator()(const std::string& k, const Bucket& rhs) const
+      { return k == rhs.name; }
 
-    struct BucketEQ
-    {
-        bool operator()(const Bucket& lhs, const Bucket& rhs) const
-    { return (lhs.name == rhs.name); }
+    bool operator()(const Bucket& lhs, const std::string& k) const
+      { return lhs.name == k; }
+  };
 
-        bool operator()(const std::string& k, const Bucket& rhs) const
-    { return k == rhs.name; }
+  typedef cohort::lru::LRU<std::mutex> bucket_lru;
 
-        bool operator()(const Bucket& lhs, const std::string& k) const
-    { return lhs.name == k; }
-    };
+  typedef bi::member_hook<Bucket, member_hook_t, &Bucket::name_hook> name_hook_t;
+  typedef bi::avltree<Bucket, bi::compare<BucketLT>, name_hook_t> bucket_avl_t;
+  typedef cohort::lru::TreeX<Bucket, bucket_avl_t, BucketLT, BucketEQ, std::string,
+			     std::mutex> bucket_avl_cache;
 
-    typedef cohort::lru::LRU<std::mutex> bucket_lru;
-
-    typedef bi::member_hook<Bucket, member_hook_t, &Bucket::name_hook> name_hook_t;
-    typedef bi::avltree<Bucket, bi::compare<BucketLT>, name_hook_t> bucket_avl_t;
-    typedef cohort::lru::TreeX<Bucket, bucket_avl_t, BucketLT, BucketEQ, std::string,
-                    std::mutex> bucket_avl_cache;
-
-    bool reclaim(const cohort::lru::ObjectFactory* newobj_fac);
+  bool reclaim(const cohort::lru::ObjectFactory* newobj_fac);
 
 }; /* Bucket */
 
@@ -224,7 +233,8 @@ retry:
         /* LATCHED */
         if (b) {
 	  b->mtx.lock();
-	  if (! lru.ref(b, cohort::lru::FLAG_INITIAL)) {
+	  if (b->deleted() ||
+	      ! lru.ref(b, cohort::lru::FLAG_INITIAL)) {
 	    // lru ref failed
 	    lat.lock->unlock();
 	    b->mtx.unlock();
@@ -297,11 +307,11 @@ retry:
             if (! (b->flags & Bucket::FLAG_FILLED)) {
                 /* bulk load into lmdb cache */
                 fill(b, FLAG_NONE);
-                b->mtx.unlock();
                 /*! LOCKED */
             }
             /* display them */
             b->mtx.unlock();
+	    /*! LOCKED */
             auto txn = b->env->getROTransaction();
             auto cursor=txn->getCursor(b->dbi);
             MDBOutVal key, data;
