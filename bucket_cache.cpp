@@ -24,8 +24,9 @@ bool Bucket::reclaim(const cohort::lru::ObjectFactory* newobj_fac) {
       lock_guard{mtx};
       if (! deleted()) {
 	flags |= FLAG_DELETED;
+	bc->recycle_count++;
 
-	std::cout << fmt::format("reclaim {}!", name) << std::endl;
+	//std::cout << fmt::format("reclaim {}!", name) << std::endl;
 
 	/* XXX we MUST still be linked, so hook check is
 	 * redundant--maybe it hopes (!) to compensate for "still in use" above */

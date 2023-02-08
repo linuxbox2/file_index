@@ -124,6 +124,7 @@ TEST(BucketCache, ListNRecycle1)
   for (auto& bucket : bvec) {
     bc->list_bucket(bucket, bucket1_marker);
   }
+  ASSERT_EQ(bc->recycle_count, 4);
 }
 
 TEST(BucketCache, TearDownBucketCacheRecycle1)
