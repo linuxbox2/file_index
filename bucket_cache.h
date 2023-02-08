@@ -220,47 +220,49 @@ struct BucketCache
 
 retry:
         b = cache.find_latch(fac.hk /* partition selector */,
-            name /* key */, lat /* serializer */, Bucket::bucket_avl_cache::FLAG_LOCK);
+			     name /* key */, lat /* serializer */, Bucket::bucket_avl_cache::FLAG_LOCK);
         /* LATCHED */
         if (b) {
-            b->mtx.lock();
-            if (! lru.ref(b, cohort::lru::FLAG_INITIAL)) {
-                // lru ref failed
-	            lat.lock->unlock();
-	            b->mtx.unlock();
-                goto retry;
-            }
-            /* LATCHED, LOCKED */
+	  b->mtx.lock();
+	  if (! lru.ref(b, cohort::lru::FLAG_INITIAL)) {
+	    // lru ref failed
+	    lat.lock->unlock();
+	    b->mtx.unlock();
+	    goto retry;
+	  }
+	  lat.lock->unlock();
+	  /* LOCKED */
+	} else {
+	  /* Bucket not in cache, we need to create it */
+	  b = static_cast<Bucket*>(
+	    lru.insert(&fac, cohort::lru::Edge::MRU, iflags));
+	  if (b) [[likely]] {
+	    b->mtx.lock();
+
+	    /* attach bucket to an lmdb partition and prepare it for i/o */
+	    auto& env = lmdbs.get_sp_env(b);
+	    auto dbi = env->openDB(b->name, MDB_CREATE);
+	    b->set_env(env, dbi);
+
+	    if (! (iflags & cohort::lru::FLAG_RECYCLE)) [[likely]] {
+	      /* inserts at cached insert iterator, releasing latch */
+	      cache.insert_latched(b, lat, Bucket::bucket_avl_cache::FLAG_UNLOCK);
 	    } else {
-            /* Bucket not in cache, we need to create it */
-            b = static_cast<Bucket*>(
-                lru.insert(&fac, cohort::lru::Edge::MRU, iflags));
-            if (b) [[likely]] {
-
-                b->mtx.lock();
-                auto& env = lmdbs.get_sp_env(b);
-                auto dbi = env->openDB(b->name, MDB_CREATE);
-                b->set_env(env, dbi);
-
-                if (! (iflags & cohort::lru::FLAG_RECYCLE)) [[likely]] {
-                    /* inserts at cached insert iterator, releasing latch */
-                    cache.insert_latched(b, lat, Bucket::bucket_avl_cache::FLAG_UNLOCK);
-                } else {
-                    /* recycle step invalidates Latch */
-                    lat.lock->unlock(); /* !LATCHED */
-                    cache.insert(fac.hk, b, Bucket::bucket_avl_cache::FLAG_NONE);
-                }
-                get<1>(result) |= BucketCache::FLAG_CREATE;
-            } else {
-                /* XXX lru allocate failed? seems impossible--that would mean that
-                 * fallback to the allocator also failed, and maybe we should abend */
-                lat.lock->unlock();
-	            goto retry; /* !LATCHED */
-            }
+	      /* recycle step invalidates Latch */
+	      lat.lock->unlock(); /* !LATCHED */
+	      cache.insert(fac.hk, b, Bucket::bucket_avl_cache::FLAG_NONE);
+	    }
+	    get<1>(result) |= BucketCache::FLAG_CREATE;
+	  } else {
+	    /* XXX lru allocate failed? seems impossible--that would mean that
+	     * fallback to the allocator also failed, and maybe we should abend */
+	    lat.lock->unlock();
+	    goto retry; /* !LATCHED */
+	  }
         } /* have Bucket */
 
         if (! (flags & BucketCache::FLAG_LOCK)) {
-            b->mtx.unlock();
+	  b->mtx.unlock();
         }
         get<0>(result) = b;
         return result;
