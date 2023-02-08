@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <random>
+#include <ranges>
 #include <stdint.h>
 
 #undef FMT_HEADER_ONLY
@@ -31,6 +32,7 @@ namespace {
   std::string tdir1{"tdir1"};
   std::uniform_int_distribution<> dist_1m(1, 1000000);
   BucketCache* bc{nullptr};
+  std::vector<std::string> bvec;
 } // anonymous ns
 
 namespace sf = std::filesystem;
@@ -41,7 +43,7 @@ TEST(BucketCache, SetupTDir1)
   sf::remove_all(tp);
   sf::create_directory(tp);
 
-  /* generate 1M unique files in random order */
+  /* generate 100K unique files in random order */
   std::string fbase{"file_"};
   for (int ix = 0; ix < 100000; ++ix) {
   retry:
@@ -49,12 +51,12 @@ TEST(BucketCache, SetupTDir1)
     sf::path ttp{tp / fmt::format("{}{}", fbase, n)};
     if (sf::exists(ttp)) {
       goto retry;
-    } else {      
+    } else {
       std::ofstream ofs(ttp);
       ofs << "data for " << ttp << std::endl;
       ofs.close();
     }
-  } /* for 1M */
+  } /* for 100K */
 } /* SetupTDir1 */
 
 TEST(BucketCache, InitBucketCache)
@@ -77,7 +79,54 @@ TEST(BucketCache, ListTDir3)
   bc->list_bucket(tdir1, bucket1_marker); // XXX need a lambda to handle the output
 }
 
-TEST(BucketCache, TearDownBucketCache) 
+TEST(BucketCache, SetupRecycle1)
+{
+  int nbuckets = 5;
+  int nfiles = 10;
+
+  bvec = [&]() {
+    std::vector<std::string> v;
+    for (int ix = 0; ix < nbuckets; ++ix) {
+      v.push_back(fmt::format("recyle_{}", ix));
+    }
+    return v;
+  }();
+
+  for (auto& bucket : bvec) {
+    sf::path tp{sf::path{bucket_root} / bucket};
+    sf::remove_all(tp);
+    sf::create_directory(tp);
+
+    std::string fbase{"file_"};
+    for (int ix = 0; ix < nfiles; ++ix) {
+    retry:
+      auto n = dist_1m(mt);
+      sf::path ttp{tp / fmt::format("{}{}", fbase, n)};
+      if (sf::exists(ttp)) {
+	goto retry;
+      } else {
+	std::ofstream ofs(ttp);
+	ofs << "data for " << ttp << std::endl;
+	ofs.close();
+      }
+    } /* for buckets */
+  }
+} /* SetupTDir1 */
+
+TEST(BucketCache, InitBucketCacheRecycle1)
+{
+  bc = new BucketCache{bucket_root, database_root, 1, 1, 1};
+}
+
+TEST(BucketCache, ListNRecycle1)
+{
+  /* the effect is to allocate a Bucket cache entry once, then recycle n-1 times */
+  for (auto& bucket : bvec) {
+    bc->list_bucket(bucket, bucket1_marker);
+  }
+}
+
+TEST(BucketCache, TearDownBucketCacheRecycle1)
 {
   delete bc;
   bc = nullptr;
