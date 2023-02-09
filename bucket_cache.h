@@ -289,12 +289,10 @@ public:
 		  << std::endl;
 	exit(1);
       }
-      /* TODO: get rwtransaction and sync fill */
       auto txn = bucket->env->getRWTransaction();
       for (const auto& dir_entry : sf::directory_iterator{bp}) {
-	// TODO: do it
 	auto fname = dir_entry.path().filename().string();
-	txn->put(bucket->dbi, fname, fname /* TODO: structure */);
+	txn->put(bucket->dbi, fname, fname /* TODO: structure, stat, &c */);
 	//std::cout << fmt::format("{} {}", __func__, fname) << '\n';
       }
       txn->commit();
