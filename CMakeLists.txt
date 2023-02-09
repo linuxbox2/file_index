@@ -17,6 +17,6 @@ target_include_directories(file_index PUBLIC
     "${CMAKE_SOURCE_DIR}/lmdb-safe")
 
 target_link_libraries(file_index
-    xxhash lmdb gtest)
+    xxhash lmdb gtest pthread)
 
 set_property(TARGET file_index PROPERTY CXX_STANDARD 20)

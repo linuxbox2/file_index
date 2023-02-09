@@ -9,6 +9,7 @@
 #include <string_view>
 #include <random>
 #include <ranges>
+#include <thread>
 #include <stdint.h>
 
 #undef FMT_HEADER_ONLY
@@ -81,6 +82,28 @@ TEST(BucketCache, ListTDir2)
 TEST(BucketCache, ListTDir3)
 {
   bc->list_bucket(tdir1, bucket1_marker, func);
+}
+
+TEST(BucketCache, ListThreads) /* clocked at 21ms on lemon, and yes,
+				* it did list 100K entries per thread */
+{
+  auto nthreads = 15;
+  std::vector<std::thread> threads;
+
+  auto func = [](const std::string_view& k) -> int 
+    {
+      //std::cout << fmt::format("called back with {}", k) << std::endl;
+      return 0;
+    };
+
+  for (int ix = 0; ix < nthreads; ++ix) {
+    threads.push_back(std::thread([&]() {
+      bc->list_bucket(tdir1, bucket1_marker, func);
+    }));
+  }
+  for (auto& t : threads) {
+    t.join();
+  }
 }
 
 TEST(BucketCache, SetupRecycle1)
