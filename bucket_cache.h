@@ -12,9 +12,9 @@
 #include <mutex>
 #include <shared_mutex>
 #include <condition_variable>
-#include <functional>
 #include <filesystem>
 #include <boost/intrusive/avl_set.hpp>
+#include "function2.hpp"
 #include "cohort_lru.h"
 #include <lmdb-safe.hh>
 #include <stdint.h>
@@ -302,7 +302,7 @@ public:
     } /* fill */
 
   void list_bucket(std::string& name, std::string& marker,
-		   std::function<int(string_view)> func /* XXX for now */)
+		   const fu2::unique_function<int(std::string_view) const>& func /* XXX for now */)
     {
       GetBucketResult gbr = get_bucket(name, BucketCache::FLAG_LOCK);
       auto [b, flags] = gbr;
