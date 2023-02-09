@@ -322,6 +322,12 @@ public:
 	MDBOutVal key, data;
 	uint64_t count{0};
 
+	const auto proc_result = [&]() {
+	  std::string_view svk = key.get<string_view>();
+	  (void) func(svk);
+	  count++;
+	};
+
 	if (! marker.empty()) {
 	  MDBInVal k(marker);
 	  auto rc = cursor.lower_bound(k, key, data);
@@ -329,18 +335,14 @@ public:
 	    /* no key sorts after k/marker, so there is nothing to do */
 	    return;
 	  }
-	  cursor.get(key, data, MDB_PREV);
+	  proc_result();	  
 	} else {
 	  /* position at start of index */
 	  cursor.get(key, data, MDB_FIRST);
-	  std::string_view svk = key.get<string_view>();
-	  (void) func(svk);
-	  count++;
+	  proc_result();
 	}
 	while(! cursor.get(key, data, MDB_NEXT)) {
-	  std::string_view svk = key.get<string_view>();
-	  (void) func(svk);
-	  count++;
+	  proc_result();
 	}
 	lru.unref(b, cohort::lru::FLAG_NONE);
       }
