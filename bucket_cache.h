@@ -302,7 +302,7 @@ public:
     } /* fill */
 
   void list_bucket(std::string& name, std::string& marker,
-		   const fu2::unique_function<int(std::string_view) const>& func /* XXX for now */)
+		   const fu2::unique_function<int(const std::string_view&) const>& func /* XXX for now */)
     {
       GetBucketResult gbr = get_bucket(name, BucketCache::FLAG_LOCK);
       auto [b, flags] = gbr;

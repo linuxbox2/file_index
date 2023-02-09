@@ -62,7 +62,7 @@ TEST(BucketCache, InitBucketCache)
   bc = new BucketCache{bucket_root, database_root}; // default tuning
 }
 
-auto func = [](std::string_view k) -> int 
+auto func = [](const std::string_view& k) -> int 
   {
     //std::cout << fmt::format("called back with {}", k) << std::endl;
     return 0;
