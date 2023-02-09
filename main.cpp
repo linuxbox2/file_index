@@ -21,8 +21,6 @@ namespace {
   std::string bucket_root = "bucket_root";
   std::string database_root = "lmdb_root";
   uint32_t max_buckets = 100;
-  uint8_t max_lanes = 1;
-  uint8_t lmdb_count = 3;
   std::string bucket1_name = "stanley";
   std::string bucket1_marker = ""; // start at the beginning
 
@@ -61,7 +59,7 @@ TEST(BucketCache, SetupTDir1)
 
 TEST(BucketCache, InitBucketCache)
 {
-  bc = new BucketCache{bucket_root, database_root, max_buckets, max_lanes, lmdb_count};
+  bc = new BucketCache{bucket_root, database_root}; // default tuning
 }
 
 TEST(BucketCache, ListTDir1)
@@ -115,7 +113,7 @@ TEST(BucketCache, SetupRecycle1)
 
 TEST(BucketCache, InitBucketCacheRecycle1)
 {
-  bc = new BucketCache{bucket_root, database_root, 1, 1, 1};
+  bc = new BucketCache{bucket_root, database_root, 1, 1, 1, 1};
 }
 
 TEST(BucketCache, ListNRecycle1)
@@ -128,6 +126,28 @@ TEST(BucketCache, ListNRecycle1)
 }
 
 TEST(BucketCache, TearDownBucketCacheRecycle1)
+{
+  delete bc;
+  bc = nullptr;
+}
+
+TEST(BucketCache, InitBucketCacheRecyclePartitions1)
+{
+  bc = new BucketCache{bucket_root, database_root, 1, 1, 5 /* max partitions */, 1};
+}
+
+TEST(BucketCache, ListNRecyclePartitions1)
+{
+  /* the effect is to allocate a Bucket cache entry once, then recycle
+   * n-1 times--in addition, 5 cache partitions are mapped to 1 lru
+   * lane--verifying independence */
+  for (auto& bucket : bvec) {
+    bc->list_bucket(bucket, bucket1_marker);
+  }
+  ASSERT_EQ(bc->recycle_count, 4);
+}
+
+TEST(BucketCache, TearDownBucketCacheRecyclePartitions1)
 {
   delete bc;
   bc = nullptr;

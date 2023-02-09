@@ -192,11 +192,12 @@ struct BucketCache
 
 public:
   BucketCache(std::string& bucket_root, std::string& database_root,
-	      uint32_t max_buckets=100, uint8_t max_lanes=3, uint8_t lmdb_count=3)
+	      uint32_t max_buckets=100, uint8_t max_lanes=3,
+	      uint8_t max_partitions=3, uint8_t lmdb_count=3)
     : bucket_root(bucket_root), max_buckets(max_buckets),
       lmdbs(database_root, lmdb_count),
       lru(max_lanes, max_buckets/max_lanes),
-      cache(max_lanes, max_buckets/max_lanes),
+      cache(max_lanes, max_buckets/max_partitions),
       rp(bucket_root)
     {
       if (! (sf::exists(rp) && sf::is_directory(rp))) {
