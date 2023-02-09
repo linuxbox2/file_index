@@ -301,7 +301,8 @@ public:
       bucket->flags |= Bucket::FLAG_FILLED;
     } /* fill */
 
-  void list_bucket(std::string& name, std::string& marker)
+  void list_bucket(std::string& name, std::string& marker,
+		   std::function<int(string_view)> func /* XXX for now */)
     {
       GetBucketResult gbr = get_bucket(name, BucketCache::FLAG_LOCK);
       auto [b, flags] = gbr;
@@ -322,7 +323,7 @@ public:
 	int count = 0;
 	while(! cursor.get(key, data, count ? MDB_NEXT : MDB_FIRST)) {
 	  std::string_view svk = key.get<string_view>();
-	  //std::cout << fmt::format("{} {}", __func__, svk) << '\n';
+	  (void) func(svk);
 	  count++;
 	}
 	lru.unref(b, cohort::lru::FLAG_NONE);

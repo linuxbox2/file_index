@@ -62,19 +62,25 @@ TEST(BucketCache, InitBucketCache)
   bc = new BucketCache{bucket_root, database_root}; // default tuning
 }
 
+auto func = [](std::string_view k) -> int 
+  {
+    //std::cout << fmt::format("called back with {}", k) << std::endl;
+    return 0;
+  };
+
 TEST(BucketCache, ListTDir1)
 {
-  bc->list_bucket(tdir1, bucket1_marker); // XXX need a lambda to handle the output
+  bc->list_bucket(tdir1, bucket1_marker, func);
 }
 
 TEST(BucketCache, ListTDir2)
 {
-  bc->list_bucket(tdir1, bucket1_marker); // XXX need a lambda to handle the output
+  bc->list_bucket(tdir1, bucket1_marker, func);
 }
 
 TEST(BucketCache, ListTDir3)
 {
-  bc->list_bucket(tdir1, bucket1_marker); // XXX need a lambda to handle the output
+  bc->list_bucket(tdir1, bucket1_marker, func);
 }
 
 TEST(BucketCache, SetupRecycle1)
@@ -120,7 +126,7 @@ TEST(BucketCache, ListNRecycle1)
 {
   /* the effect is to allocate a Bucket cache entry once, then recycle n-1 times */
   for (auto& bucket : bvec) {
-    bc->list_bucket(bucket, bucket1_marker);
+    bc->list_bucket(bucket, bucket1_marker, func);
   }
   ASSERT_EQ(bc->recycle_count, 4);
 }
@@ -142,7 +148,7 @@ TEST(BucketCache, ListNRecyclePartitions1)
    * n-1 times--in addition, 5 cache partitions are mapped to 1 lru
    * lane--verifying independence */
   for (auto& bucket : bvec) {
-    bc->list_bucket(bucket, bucket1_marker);
+    bc->list_bucket(bucket, bucket1_marker, func);
   }
   ASSERT_EQ(bc->recycle_count, 4);
 }
