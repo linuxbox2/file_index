@@ -115,7 +115,7 @@ TEST(BucketCache, SetupRecycle1)
       }
     } /* for buckets */
   }
-} /* SetupTDir1 */
+} /* SetupRecycle1 */
 
 TEST(BucketCache, InitBucketCacheRecycle1)
 {
@@ -154,6 +154,54 @@ TEST(BucketCache, ListNRecyclePartitions1)
 }
 
 TEST(BucketCache, TearDownBucketCacheRecyclePartitions1)
+{
+  delete bc;
+  bc = nullptr;
+}
+
+TEST(BucketCache, SetupMarker1)
+{
+  int nfiles = 20;
+  std::string bucket{"marker1"};
+
+  sf::path tp{sf::path{bucket_root} / bucket};
+  sf::remove_all(tp);
+  sf::create_directory(tp);
+
+  std::string fbase{"file_"};
+  for (int ix = 0; ix < nfiles; ++ix) {
+    sf::path ttp{tp / fmt::format("{}{}", fbase, ix)};
+    std::ofstream ofs(ttp);
+    ofs << "data for " << ttp << std::endl;
+    ofs.close();
+  }
+} /* SetupMarker1 */
+
+TEST(BucketCache, InitBucketCacheMarker1)
+{
+  bc = new BucketCache{bucket_root, database_root};
+}
+
+TEST(BucketCache, ListMarker1)
+{
+  std::string bucket{"marker1"};
+  std::string marker{"file_18"}; // midpoint+1
+  std::vector<std::string> names;
+
+  auto f = [&](const std::string_view& k) -> int {
+    //std::cout << fmt::format("called back with {}", k) << std::endl;
+    names.push_back(std::string{k});
+    return 0;
+  };
+
+  bc->list_bucket(bucket, marker, f);
+
+  ASSERT_EQ(names.size(), 10);
+  ASSERT_EQ(*names.begin(), "file_18");
+  ASSERT_EQ(*names.rbegin(), "file_9");
+}
+
+TEST(BucketCache, TearDownBucketCacheMarker1)
 {
   delete bc;
   bc = nullptr;

@@ -316,12 +316,28 @@ public:
 	/* display them */
 	b->mtx.unlock();
 	/*! LOCKED */
+
 	auto txn = b->env->getROTransaction();
 	auto cursor=txn->getCursor(b->dbi);
 	MDBOutVal key, data;
-	// TODO: advance to marker!
-	int count = 0;
-	while(! cursor.get(key, data, count ? MDB_NEXT : MDB_FIRST)) {
+	uint64_t count{0};
+
+	if (! marker.empty()) {
+	  MDBInVal k(marker);
+	  auto rc = cursor.lower_bound(k, key, data);
+	  if (rc == MDB_NOTFOUND) {
+	    /* no key sorts after k/marker, so there is nothing to do */
+	    return;
+	  }
+	  cursor.get(key, data, MDB_PREV);
+	} else {
+	  /* position at start of index */
+	  cursor.get(key, data, MDB_FIRST);
+	  std::string_view svk = key.get<string_view>();
+	  (void) func(svk);
+	  count++;
+	}
+	while(! cursor.get(key, data, MDB_NEXT)) {
 	  std::string_view svk = key.get<string_view>();
 	  (void) func(svk);
 	  count++;
