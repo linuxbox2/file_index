@@ -1,7 +1,6 @@
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab ft=cpp
 
-
 #pragma once
 
 #include <iostream>
@@ -52,6 +51,7 @@ namespace file::listing {
       : Notify(bucket_root)
       {}
 
+    friend class Notify;
   public:
     virtual int add_watch(std::string& dname) override {
       return 0;
@@ -61,7 +61,7 @@ namespace file::listing {
       return 0;
     }
 
-    ~Inotify() {
+    virtual ~Inotify() {
       thrd.join();
     }
   };
