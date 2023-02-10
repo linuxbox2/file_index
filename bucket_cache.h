@@ -17,6 +17,7 @@
 #include "function2.hpp"
 #include "cohort_lru.h"
 #include <lmdb-safe.hh>
+#include "notify.h"
 #include <stdint.h>
 #include <xxhash.h>
 
