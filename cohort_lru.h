@@ -16,6 +16,7 @@
 #include <atomic>
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/slist.hpp>
+#include <string.h>
 
 #ifndef CACHE_LINE_SIZE
 #define CACHE_LINE_SIZE 64 /* XXX arch-specific define */

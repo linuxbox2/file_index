@@ -2,6 +2,8 @@
 // vim: ts=8 sw=2 smarttab ft=cpp
 #include "bucket_cache.h"
 
+using namespace file::listing;
+
 bool Bucket::reclaim(const cohort::lru::ObjectFactory* newobj_fac) {
     auto factory = dynamic_cast<const Bucket::Factory*>(newobj_fac);
     if (factory == nullptr) {

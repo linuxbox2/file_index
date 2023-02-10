@@ -24,6 +24,8 @@
 #define FMT_HEADER_ONLY 1
 #include <fmt/format.h>
 
+namespace file::listing {
+
 namespace bi = boost::intrusive;
 namespace sf = std::filesystem;
 
@@ -347,3 +349,5 @@ public:
     } /* list_bucket */
 
 }; /* BucketCache */
+
+} // namespace file::listing

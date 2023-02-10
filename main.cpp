@@ -18,6 +18,8 @@
 
 #include <gtest/gtest.h>
 
+using namespace file::listing;
+
 namespace {
   std::string bucket_root = "bucket_root";
   std::string database_root = "lmdb_root";
