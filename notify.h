@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <string>
+#include <memory>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -19,19 +20,22 @@ namespace file::listing {
   class Notify
   {
     std::string& bucket_root;
-  public:
+
     Notify(std::string& bucket_root)
       : bucket_root(bucket_root)
       {}
 
+    friend class Inotify;
+  public:
+    static std::unique_ptr<Notify> factory(std::string& bucket_root);
+    
     virtual int add_watch(std::string& dname) = 0;
     virtual int remove_watch(std::string& dname) = 0;
     virtual ~Notify()
       {}
-    
-    
   }; /* Notify */
 
+#ifdef linux
   class Inotify : public Notify
   {
     std::thread thrd;
@@ -44,11 +48,11 @@ namespace file::listing {
       }
     }
 
-  public:
     Inotify(std::string& bucket_root)
       : Notify(bucket_root)
       {}
 
+  public:
     virtual int add_watch(std::string& dname) override {
       return 0;
     }
@@ -61,5 +65,6 @@ namespace file::listing {
       thrd.join();
     }
   };
+#endif /* linux */
 
 } // namespace file::listing

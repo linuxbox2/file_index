@@ -10,6 +10,7 @@ find_package(GTest REQUIRED)
 add_executable(file_index
     lmdb-safe/lmdb-safe.cc
     bucket_cache.cpp
+    notify.cpp
     main.cpp)
 
 target_include_directories(file_index PUBLIC
