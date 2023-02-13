@@ -28,7 +28,26 @@ namespace file::listing {
 
   using namespace std::chrono_literals;
   namespace sf = std::filesystem;
-  
+
+  template<typename T>
+  class Notifiable
+  {
+    enum class EventType : uint8_t
+    {
+      ADD = 0,
+      REMOVE,
+      INVALIDATE
+    };
+
+    struct Event
+    {
+      EventType type;
+      std::optional<std::string_view> name;
+    };
+    
+    virtual int notify(std::vector<Event>) = 0;
+  };
+
   class Notify
   {
     sf::path rp;
