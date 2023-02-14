@@ -29,9 +29,9 @@ namespace file::listing {
   using namespace std::chrono_literals;
   namespace sf = std::filesystem;
 
-  template<typename T>
   class Notifiable
   {
+  public:
     enum class EventType : uint8_t
     {
       ADD = 0,
@@ -43,22 +43,27 @@ namespace file::listing {
     {
       EventType type;
       std::optional<std::string_view> name;
+
+      Event(EventType type,std::optional<std::string_view> name)
+	: type(type), name(name) 
+	{}
     };
     
-    virtual int notify(std::vector<Event>) = 0;
+    virtual int notify(const std::vector<Event>&) = 0;
   };
 
   class Notify
   {
+    Notifiable* c;
     sf::path rp;
 
-    Notify(std::string& bucket_root)
-      : rp(bucket_root)
+    Notify(Notifiable* c, std::string& bucket_root)
+      : c(c), rp(bucket_root)
       {}
 
     friend class Inotify;
   public:
-    static std::unique_ptr<Notify> factory(std::string& bucket_root);
+    static std::unique_ptr<Notify> factory(Notifiable* c, std::string& bucket_root);
     
     virtual int add_watch(const std::string& dname) = 0;
     virtual int remove_watch(const std::string& dname) = 0;
@@ -125,29 +130,34 @@ namespace file::listing {
 	  if (len == -1) {
 	    continue; // hopefully, was EAGAIN
 	  }
+	  std::vector<Notifiable::Event> evec;
 	  for (char* ptr = buf; ptr < buf + len;
 	       ptr += sizeof(struct inotify_event) + event->len) {
 	    event = reinterpret_cast<struct inotify_event*>(ptr);
 	    if (event->mask & IN_Q_OVERFLOW) [[unlikely]] {
 	      /* cache blown, invalidate */
-	      /* TODO: implement */
+	      evec.push_back(Notifiable::Event(Notifiable::EventType::INVALIDATE, std::nullopt));
 	    } else {
 	      if ((event->mask & IN_CREATE) ||
 		  (event->mask & IN_MOVED_TO)) {
 		/* new object in dir */
+		evec.push_back(Notifiable::Event(Notifiable::EventType::ADD, event->name));
 	      } else if ((event->mask & IN_DELETE) ||
 			 (event->mask & IN_MOVED_FROM)) {
 		/* object removed from dir */
-	      
+		evec.push_back(Notifiable::Event(Notifiable::EventType::REMOVE, event->name));
 	      }
 	    } /* !overflow */
+	    if (evec.size() > 0) {
+	      c->notify(evec);
+	    }
 	  } /* events */
 	} /* n > 0 */
       }
     } /* ev_loop */
 
-    Inotify(std::string& bucket_root)
-      : Notify(bucket_root)
+    Inotify(Notifiable* c, std::string& bucket_root)
+      : Notify(c, bucket_root)
       {
 	fd = inotify_init1(IN_NONBLOCK);
 	if (fd == -1) {

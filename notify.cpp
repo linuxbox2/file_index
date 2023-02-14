@@ -8,10 +8,10 @@
 
 namespace file::listing {
 
-  std::unique_ptr<Notify> Notify::factory(std::string& bucket_root)
+  std::unique_ptr<Notify> Notify::factory(Notifiable* c, std::string& bucket_root)
   {
 #ifdef linux
-    return std::unique_ptr<Notify>(new Inotify(bucket_root));
+    return std::unique_ptr<Notify>(new Inotify(c, bucket_root));
 #endif /* linux */
     return nullptr;
   } /* Notify::factory */

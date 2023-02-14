@@ -28,7 +28,7 @@
 namespace file::listing {
 
 namespace bi = boost::intrusive;
-namespace sf = std::filesystem;
+namespace sf = std::filesystem; 
 
 typedef bi::link_mode<bi::safe_link> link_mode; /* XXX normal */
 typedef bi::avl_set_member_hook<link_mode> member_hook_t;
@@ -134,7 +134,7 @@ public:
 
 }; /* Bucket */
 
-struct BucketCache
+struct BucketCache : public Notifiable
 {
   using lock_guard = std::lock_guard<std::mutex>;
   using unique_lock = std::unique_lock<std::mutex>;
@@ -349,6 +349,11 @@ public:
       }
     } /* list_bucket */
 
+  int notify(const std::vector<Notifiable::Event>& ev) override {
+    // TODO: implement
+    return 0;
+  }
+  
 }; /* BucketCache */
 
 } // namespace file::listing
