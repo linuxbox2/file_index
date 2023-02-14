@@ -53,7 +53,7 @@ namespace file::listing {
 	{}
     };
     
-    virtual int notify(const std::vector<Event>&) = 0;
+    virtual int notify(const std::string&, const std::vector<Event>&) = 0;
   };
 
   class Notify
@@ -118,6 +118,8 @@ namespace file::listing {
       nfds_t nfds{2};
       struct pollfd fds[2] = {{wfd, POLLIN}, {efd, POLLIN}};
 
+      std::string fake_name("fixme");
+
     restart:
       while(! shutdown) {
 	npoll = poll(fds, nfds, -1); /* for up to 10 fds, poll is fast as epoll */
@@ -143,7 +145,7 @@ namespace file::listing {
 	      /* cache blown, invalidate */
 	      evec.clear();
 	      evec.emplace_back(Notifiable::Event(Notifiable::EventType::INVALIDATE, std::nullopt));
-	      n->notify(evec);
+	      n->notify(fake_name, evec);
 	      goto restart;
 	    } else {
 	      if ((event->mask & IN_CREATE) ||
@@ -157,7 +159,7 @@ namespace file::listing {
 	      }
 	    } /* !overflow */
 	    if (evec.size() > 0) {
-	      n->notify(evec);
+	      n->notify(fake_name, evec);
 	    }
 	  } /* events */
 	} /* n > 0 */

@@ -59,7 +59,7 @@ struct Bucket : public cohort::lru::Object
   uint32_t flags;
 
 public:
-  Bucket(BucketCache* bc, std::string& name, uint64_t hk)
+  Bucket(BucketCache* bc, const std::string& name, uint64_t hk)
     : bc(bc), name(name), hk(hk), flags(FLAG_NONE) {}
 
   void set_env(std::shared_ptr<MDBEnv>& _env, MDBDbi& _dbi) {
@@ -75,12 +75,12 @@ public:
   {
   public:
     BucketCache* bc;
-    std::string& name;
+    const std::string& name;
     uint64_t hk;
     uint32_t flags;
 
     Factory() = delete;
-    Factory(BucketCache *bc, std::string& name)
+    Factory(BucketCache *bc, const std::string& name)
       : bc(bc), name(name), flags(FLAG_NONE) {
       hk = XXH64(name.c_str(), name.length(), Bucket::seed);
     }
@@ -223,7 +223,7 @@ public:
 
   typedef std::tuple<Bucket*, uint32_t> GetBucketResult;
 
-  GetBucketResult get_bucket(std::string& name, uint32_t flags)
+  GetBucketResult get_bucket(const std::string& name, uint32_t flags)
     {
       /* this fn returns a bucket locked appropriately, having atomically
        * found or inserted the required Bucket in_avl*/
@@ -349,10 +349,24 @@ public:
       }
     } /* list_bucket */
 
-  int notify(const std::vector<Notifiable::Event>& ev) override {
-    // TODO: implement
+  int notify(const std::string& name,
+	     const std::vector<Notifiable::Event>& evec) override {
+    GetBucketResult gbr = get_bucket(name, BucketCache::FLAG_LOCK);
+    auto [b, flags] = gbr;
+    if (b) {
+      auto bflags = b->flags;
+      b->mtx.unlock();
+      if (! (bflags & Bucket::FLAG_FILLED)) {
+	/* do nothing */
+	return 0;
+      }
+      auto txn = b->env->getRWTransaction();
+      for (const auto& ev : evec) {
+	// TODO: implement
+      }
+    }
     return 0;
-  }
+  } /* notify */
   
 }; /* BucketCache */
 
