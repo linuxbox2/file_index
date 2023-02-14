@@ -44,8 +44,12 @@ namespace file::listing {
       EventType type;
       std::optional<std::string_view> name;
 
-      Event(EventType type,std::optional<std::string_view> name)
-	: type(type), name(name) 
+      Event(EventType type, std::optional<std::string_view> name) noexcept
+	: type(type), name(name)
+	{}
+
+      Event(Event&& rhs) noexcept
+	: type(rhs.type), name(rhs.name)
 	{}
     };
     
@@ -54,16 +58,16 @@ namespace file::listing {
 
   class Notify
   {
-    Notifiable* c;
+    Notifiable* n;
     sf::path rp;
 
-    Notify(Notifiable* c, std::string& bucket_root)
-      : c(c), rp(bucket_root)
+    Notify(Notifiable* n, std::string& bucket_root)
+      : n(n), rp(bucket_root)
       {}
 
     friend class Inotify;
   public:
-    static std::unique_ptr<Notify> factory(Notifiable* c, std::string& bucket_root);
+    static std::unique_ptr<Notify> factory(Notifiable* n, std::string& bucket_root);
     
     virtual int add_watch(const std::string& dname) = 0;
     virtual int remove_watch(const std::string& dname) = 0;
@@ -80,7 +84,7 @@ namespace file::listing {
     static constexpr uint64_t sig_shutdown = std::numeric_limits<uint64_t>::max() - 0xdeadbeef;
     static constexpr uint32_t aw_mask = IN_MOVE|IN_DONT_FOLLOW|IN_ONLYDIR|IN_MASK_ADD;
 
-    int fd, efd;
+    int wfd, efd;
     std::thread thrd;
     wd_map_t wd_map;
     bool shutdown{false};
@@ -109,25 +113,25 @@ namespace file::listing {
       struct inotify_event* event;
       char* buf = up_buf.get()->get();
       ssize_t len;
-      int n;
+      int npoll;
 
       nfds_t nfds{2};
-      struct pollfd fds[2] = {{fd, POLLIN}, {efd, POLLIN}};
+      struct pollfd fds[2] = {{wfd, POLLIN}, {efd, POLLIN}};
 
     restart:
       while(! shutdown) {
-	n = poll(fds, nfds, -1); /* for up to 10 fds, poll is fast as epoll */
+	npoll = poll(fds, nfds, -1); /* for up to 10 fds, poll is fast as epoll */
 	if (shutdown) {
 	  return;
 	}
-	if (n == -1) {
+	if (npoll == -1) {
 	  if (errno = EINTR) {
 	    continue;
 	  }
 	  // XXX
 	}
-	if (n > 0) {
-	  len = read(fd, buf, rd_size);
+	if (npoll > 0) {
+	  len = read(wfd, buf, rd_size);
 	  if (len == -1) {
 	    continue; // hopefully, was EAGAIN
 	  }
@@ -138,34 +142,34 @@ namespace file::listing {
 	    if (event->mask & IN_Q_OVERFLOW) [[unlikely]] {
 	      /* cache blown, invalidate */
 	      evec.clear();
-	      evec.push_back(Notifiable::Event(Notifiable::EventType::INVALIDATE, std::nullopt));
-	      c->notify(evec);
+	      evec.emplace_back(Notifiable::Event(Notifiable::EventType::INVALIDATE, std::nullopt));
+	      n->notify(evec);
 	      goto restart;
 	    } else {
 	      if ((event->mask & IN_CREATE) ||
 		  (event->mask & IN_MOVED_TO)) {
 		/* new object in dir */
-		evec.push_back(Notifiable::Event(Notifiable::EventType::ADD, event->name));
+		evec.emplace_back(Notifiable::Event(Notifiable::EventType::ADD, event->name));
 	      } else if ((event->mask & IN_DELETE) ||
 			 (event->mask & IN_MOVED_FROM)) {
 		/* object removed from dir */
-		evec.push_back(Notifiable::Event(Notifiable::EventType::REMOVE, event->name));
+		evec.emplace_back(Notifiable::Event(Notifiable::EventType::REMOVE, event->name));
 	      }
 	    } /* !overflow */
 	    if (evec.size() > 0) {
-	      c->notify(evec);
+	      n->notify(evec);
 	    }
 	  } /* events */
 	} /* n > 0 */
       }
     } /* ev_loop */
 
-    Inotify(Notifiable* c, std::string& bucket_root)
-      : Notify(c, bucket_root)
+    Inotify(Notifiable* n, std::string& bucket_root)
+      : Notify(n, bucket_root)
       {
-	fd = inotify_init1(IN_NONBLOCK);
-	if (fd == -1) {
-	  std::cerr << fmt::format("{} inotify_init1 failed with {}", __func__, fd) << std::endl;
+	wfd = inotify_init1(IN_NONBLOCK);
+	if (wfd == -1) {
+	  std::cerr << fmt::format("{} inotify_init1 failed with {}", __func__, wfd) << std::endl;
 	  exit(1);
 	}
 	efd = eventfd(0, EFD_NONBLOCK);
@@ -180,7 +184,7 @@ namespace file::listing {
   public:
     virtual int add_watch(const std::string& dname) override {
       sf::path wp{rp / dname};
-      int wd = inotify_add_watch(fd, wp.c_str(), aw_mask);
+      int wd = inotify_add_watch(wfd, wp.c_str(), aw_mask);
       if (wd == -1) {
 	std::cerr << fmt::format("{} inotify_add_watch {} failed with {}", __func__, dname, wd) << std::endl;
       } else {
@@ -194,7 +198,7 @@ namespace file::listing {
       const auto& elt = wd_map.find(dname);
       if (elt != wd_map.end()) {
 	auto& wd = elt->second;
-	r = inotify_rm_watch(fd, wd);
+	r = inotify_rm_watch(wfd, wd);
 	if (r == -1) {
 	  std::cerr << fmt::format("{} inotify_rm_watch {} failed with {}", __func__, dname, wd) << std::endl;
 	}
