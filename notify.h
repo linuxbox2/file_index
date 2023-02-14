@@ -114,6 +114,7 @@ namespace file::listing {
       nfds_t nfds{2};
       struct pollfd fds[2] = {{fd, POLLIN}, {efd, POLLIN}};
 
+    restart:
       while(! shutdown) {
 	n = poll(fds, nfds, -1); /* for up to 10 fds, poll is fast as epoll */
 	if (shutdown) {
@@ -136,7 +137,10 @@ namespace file::listing {
 	    event = reinterpret_cast<struct inotify_event*>(ptr);
 	    if (event->mask & IN_Q_OVERFLOW) [[unlikely]] {
 	      /* cache blown, invalidate */
+	      evec.clear();
 	      evec.push_back(Notifiable::Event(Notifiable::EventType::INVALIDATE, std::nullopt));
+	      c->notify(evec);
+	      goto restart;
 	    } else {
 	      if ((event->mask & IN_CREATE) ||
 		  (event->mask & IN_MOVED_TO)) {
