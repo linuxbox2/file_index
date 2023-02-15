@@ -394,6 +394,7 @@ public:
 	  mdb_drop(*txn, b->dbi, 0); /* apparently, does not require
 				   * commit */
 	  b->flags &= ~Bucket::FLAG_FILLED;
+	  return 0; /* don't process any more events in this batch */
 	}
 	  break;
 	default:
