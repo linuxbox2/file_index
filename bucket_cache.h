@@ -359,7 +359,7 @@ public:
       std::unique_lock<std::mutex> ulk(b->mtx, std::adopt_lock);
       if ((b->name != name) ||
 	  (b != opaque) ||
-	  (b->flags & Bucket::FLAG_FILLED)) {
+	  (! (b->flags & Bucket::FLAG_FILLED))) {
 	/* do nothing */
 	return 0;
       }
