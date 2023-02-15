@@ -356,7 +356,7 @@ public:
     GetBucketResult gbr = get_bucket(bname, BucketCache::FLAG_LOCK);
     auto [b, flags] = gbr;
     if (b) {
-      std::unique_lock<std::mutex> ulk(b->mtx, std::adopt_lock);
+      std::unique_lock<std::mutex> ulk{b->mtx, std::adopt_lock};
       if ((b->name != bname) ||
 	  (b != opaque) ||
 	  (! (b->flags & Bucket::FLAG_FILLED))) {
