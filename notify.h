@@ -10,6 +10,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include <optional>
 #include <filesystem>
 #include <limits>
 #include <cstdlib>
@@ -26,7 +27,6 @@
 
 namespace file::listing {
 
-  using namespace std::chrono_literals;
   namespace sf = std::filesystem;
 
   class Notifiable
@@ -69,7 +69,7 @@ namespace file::listing {
   public:
     static std::unique_ptr<Notify> factory(Notifiable* n, std::string& bucket_root);
     
-    virtual int add_watch(const std::string& dname) = 0;
+    virtual int add_watch(const std::string& dname, void* opaque) = 0;
     virtual int remove_watch(const std::string& dname) = 0;
     virtual ~Notify()
       {}
@@ -78,15 +78,40 @@ namespace file::listing {
 #ifdef linux
   class Inotify : public Notify
   {
-    using wd_map_t = ankerl::unordered_dense::map<std::string, int>;
-    
     static constexpr uint32_t rd_size = 8192;
     static constexpr uint64_t sig_shutdown = std::numeric_limits<uint64_t>::max() - 0xdeadbeef;
     static constexpr uint32_t aw_mask = IN_MOVE|IN_DONT_FOLLOW|IN_ONLYDIR|IN_MASK_ADD;
 
+    class WatchRecord
+    {
+    public:
+      int wd;
+      std::string name;
+      void* opaque;
+    public:
+      WatchRecord(int wd, const std::string& name, void* opaque) noexcept
+	: wd(wd), name(name), opaque(opaque)
+	{}
+
+      WatchRecord(WatchRecord&& wr) noexcept
+	: wd(wr.wd), name(wr.name), opaque(wr.opaque)
+	{}
+
+      WatchRecord& operator=(WatchRecord&& wr) {
+	wd = wr.wd;
+	name = std::move(wr.name);
+	opaque = wr.opaque;
+	return *this;
+      }
+    }; /* WatchRecord */
+
+    using wd_callback_map_t = ankerl::unordered_dense::map<int, WatchRecord>;
+    using wd_remove_map_t = ankerl::unordered_dense::map<std::string, int>;
+
     int wfd, efd;
     std::thread thrd;
-    wd_map_t wd_map;
+    wd_callback_map_t wd_callback_map;
+    wd_remove_map_t wd_remove_map;
     bool shutdown{false};
 
     class AlignedBuf
@@ -184,26 +209,29 @@ namespace file::listing {
 
     friend class Notify;
   public:
-    virtual int add_watch(const std::string& dname) override {
+    virtual int add_watch(const std::string& dname, void* opaque) override {
       sf::path wp{rp / dname};
       int wd = inotify_add_watch(wfd, wp.c_str(), aw_mask);
       if (wd == -1) {
 	std::cerr << fmt::format("{} inotify_add_watch {} failed with {}", __func__, dname, wd) << std::endl;
       } else {
-	wd_map.insert(wd_map_t::value_type(dname, wd));
+	wd_callback_map.insert(wd_callback_map_t::value_type(wd, WatchRecord(wd, dname, opaque)));
+	wd_remove_map.insert(wd_remove_map_t::value_type(dname, wd));
       }
       return wd;
     }
 
     virtual int remove_watch(const std::string& dname) override {
       int r{0};
-      const auto& elt = wd_map.find(dname);
-      if (elt != wd_map.end()) {
+      const auto& elt = wd_remove_map.find(dname);
+      if (elt != wd_remove_map.end()) {
 	auto& wd = elt->second;
 	r = inotify_rm_watch(wfd, wd);
 	if (r == -1) {
 	  std::cerr << fmt::format("{} inotify_rm_watch {} failed with {}", __func__, dname, wd) << std::endl;
 	}
+	wd_callback_map.erase(wd);
+	wd_remove_map.erase(std::string(dname));
       }
       return r;
     }

@@ -22,19 +22,24 @@ bool Bucket::reclaim(const cohort::lru::ObjectFactory* newobj_fac) {
 #endif
     {
       /* in this case, we are being called from a context which holds
-       * the partition lock, but may be still in use */
+       * A partition lock, and this may be still in use */
       lock_guard{mtx};
       if (! deleted()) {
 	flags |= FLAG_DELETED;
 	bc->recycle_count++;
 
-	//std::cout << fmt::format("reclaim {}!", name) << std::endl;
+	std::cout << fmt::format("reclaim {}!", name) << std::endl;
+	bc->un->remove_watch(name);
 
 	/* XXX we MUST still be linked, so hook check is
 	 * redundant--maybe it hopes (!) to compensate for "still in use" above */
+#if 0
 	if (name_hook.is_linked()) {
 	  bc->cache.remove(hk, this, bucket_avl_cache::FLAG_NONE);
 	}
+#else
+	bc->cache.remove(hk, this, bucket_avl_cache::FLAG_NONE);
+#endif
 
 	/* discard lmdb data associated with this bucket */
 	auto txn = env->getRWTransaction();

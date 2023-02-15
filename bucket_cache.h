@@ -30,7 +30,7 @@ namespace file::listing {
 namespace bi = boost::intrusive;
 namespace sf = std::filesystem; 
 
-typedef bi::link_mode<bi::safe_link> link_mode; /* XXX normal */
+typedef bi::link_mode<bi::normal_link> link_mode; /* XXX normal */
 typedef bi::avl_set_member_hook<link_mode> member_hook_t;
 
 struct BucketCache;
@@ -142,6 +142,7 @@ struct BucketCache : public Notifiable
   std::string bucket_root;
   uint32_t max_buckets;
   std::atomic<uint64_t> recycle_count;
+  std::unique_ptr<Notify> un;
   std::mutex mtx;
   
 
@@ -199,6 +200,7 @@ public:
 	      uint8_t max_partitions=3, uint8_t lmdb_count=3)
     : bucket_root(bucket_root), max_buckets(max_buckets),
       lmdbs(database_root, lmdb_count),
+      un(Notify::factory(this, bucket_root)),
       lru(max_lanes, max_buckets/max_lanes),
       cache(max_lanes, max_buckets/max_partitions),
       rp(bucket_root)
@@ -300,6 +302,7 @@ public:
       }
       txn->commit();
       bucket->flags |= Bucket::FLAG_FILLED;
+      un->add_watch(bucket->name, bucket);
     } /* fill */
 
   void list_bucket(std::string& name, std::string& marker,
@@ -312,7 +315,6 @@ public:
 	if (! (b->flags & Bucket::FLAG_FILLED)) {
 	  /* bulk load into lmdb cache */
 	  fill(b, FLAG_NONE);
-	  /*! LOCKED */
 	}
 	/* display them */
 	b->mtx.unlock();
@@ -363,6 +365,12 @@ public:
       auto txn = b->env->getRWTransaction();
       for (const auto& ev : evec) {
 	// TODO: implement
+	std::string_view nil{""};
+	std::cout << fmt::format("notify {} {}!",
+				 ev.name ? *ev.name : nil,
+				 uint32_t(ev.type))
+		  << std::endl;
+	/* TODO: add or remove entry */
       }
     }
     return 0;
