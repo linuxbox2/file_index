@@ -351,17 +351,19 @@ public:
       }
     } /* list_bucket */
 
-  int notify(const std::string& name,
+  int notify(const std::string& name, void* opaque,
 	     const std::vector<Notifiable::Event>& evec) override {
     GetBucketResult gbr = get_bucket(name, BucketCache::FLAG_LOCK);
     auto [b, flags] = gbr;
     if (b) {
-      auto bflags = b->flags;
-      b->mtx.unlock();
-      if (! (bflags & Bucket::FLAG_FILLED)) {
+      std::unique_lock<std::mutex> ulk(b->mtx, std::adopt_lock);
+      if ((b->name != name) ||
+	  (b != opaque) ||
+	  (b->flags & Bucket::FLAG_FILLED)) {
 	/* do nothing */
 	return 0;
       }
+      ulk.unlock();
       auto txn = b->env->getRWTransaction();
       for (const auto& ev : evec) {
 	// TODO: implement

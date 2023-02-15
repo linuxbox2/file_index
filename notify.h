@@ -53,7 +53,7 @@ namespace file::listing {
 	{}
     };
     
-    virtual int notify(const std::string&, const std::vector<Event>&) = 0;
+    virtual int notify(const std::string&, void*, const std::vector<Event>&) = 0;
   };
 
   class Notify
@@ -143,8 +143,6 @@ namespace file::listing {
       nfds_t nfds{2};
       struct pollfd fds[2] = {{wfd, POLLIN}, {efd, POLLIN}};
 
-      std::string fake_name("fixme");
-
     restart:
       while(! shutdown) {
 	npoll = poll(fds, nfds, -1); /* for up to 10 fds, poll is fast as epoll */
@@ -166,11 +164,17 @@ namespace file::listing {
 	  for (char* ptr = buf; ptr < buf + len;
 	       ptr += sizeof(struct inotify_event) + event->len) {
 	    event = reinterpret_cast<struct inotify_event*>(ptr);
+	    const auto& it = wd_callback_map.find(event->wd);
+	    if (it == wd_callback_map.end()) [[unlikely]] {
+	      /* non-destructive race, it happens */
+	      continue;
+	    }
+	    const auto& wr = it->second;
 	    if (event->mask & IN_Q_OVERFLOW) [[unlikely]] {
 	      /* cache blown, invalidate */
 	      evec.clear();
 	      evec.emplace_back(Notifiable::Event(Notifiable::EventType::INVALIDATE, std::nullopt));
-	      n->notify(fake_name, evec);
+	      n->notify(wr.name, wr.opaque, evec);
 	      goto restart;
 	    } else {
 	      if ((event->mask & IN_CREATE) ||
@@ -184,7 +188,7 @@ namespace file::listing {
 	      }
 	    } /* !overflow */
 	    if (evec.size() > 0) {
-	      n->notify(fake_name, evec);
+	      n->notify(wr.name, wr.opaque, evec);
 	    }
 	  } /* events */
 	} /* n > 0 */
@@ -192,7 +196,8 @@ namespace file::listing {
     } /* ev_loop */
 
     Inotify(Notifiable* n, std::string& bucket_root)
-      : Notify(n, bucket_root)
+      : Notify(n, bucket_root),
+	thrd(&Inotify::ev_loop, this)
       {
 	wfd = inotify_init1(IN_NONBLOCK);
 	if (wfd == -1) {
