@@ -61,13 +61,13 @@ namespace file::listing {
     Notifiable* n;
     sf::path rp;
 
-    Notify(Notifiable* n, std::string& bucket_root)
+    Notify(Notifiable* n, const std::string& bucket_root)
       : n(n), rp(bucket_root)
       {}
 
     friend class Inotify;
   public:
-    static std::unique_ptr<Notify> factory(Notifiable* n, std::string& bucket_root);
+    static std::unique_ptr<Notify> factory(Notifiable* n, const std::string& bucket_root);
     
     virtual int add_watch(const std::string& dname, void* opaque) = 0;
     virtual int remove_watch(const std::string& dname) = 0;
@@ -195,7 +195,7 @@ namespace file::listing {
       }
     } /* ev_loop */
 
-    Inotify(Notifiable* n, std::string& bucket_root)
+    Inotify(Notifiable* n, const std::string& bucket_root)
       : Notify(n, bucket_root),
 	thrd(&Inotify::ev_loop, this)
       {

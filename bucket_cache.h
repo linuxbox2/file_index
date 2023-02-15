@@ -372,7 +372,6 @@ public:
 				 ev.name ? *ev.name : nil,
 				 uint32_t(ev.type))
 		  << std::endl;
-	/* TODO: add or remove entry */
 	switch (ev.type)
 	{
 	case EventType::ADD:
