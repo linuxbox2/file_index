@@ -351,13 +351,13 @@ public:
       }
     } /* list_bucket */
 
-  int notify(const std::string& name, void* opaque,
+  int notify(const std::string& bname, void* opaque,
 	     const std::vector<Notifiable::Event>& evec) override {
-    GetBucketResult gbr = get_bucket(name, BucketCache::FLAG_LOCK);
+    GetBucketResult gbr = get_bucket(bname, BucketCache::FLAG_LOCK);
     auto [b, flags] = gbr;
     if (b) {
       std::unique_lock<std::mutex> ulk(b->mtx, std::adopt_lock);
-      if ((b->name != name) ||
+      if ((b->name != bname) ||
 	  (b != opaque) ||
 	  (! (b->flags & Bucket::FLAG_FILLED))) {
 	/* do nothing */
@@ -366,13 +366,40 @@ public:
       ulk.unlock();
       auto txn = b->env->getRWTransaction();
       for (const auto& ev : evec) {
-	// TODO: implement
+	using EventType = Notifiable::EventType;
 	std::string_view nil{""};
 	std::cout << fmt::format("notify {} {}!",
 				 ev.name ? *ev.name : nil,
 				 uint32_t(ev.type))
 		  << std::endl;
 	/* TODO: add or remove entry */
+	switch (ev.type)
+	{
+	case EventType::ADD:
+	{
+	  auto& ev_name = *ev.name;
+	  txn->put(b->dbi, ev_name, ev_name);
+	}
+	  break;
+	case EventType::REMOVE:
+	{
+	  auto& ev_name = *ev.name;
+	  txn->del(b->dbi, ev_name);
+	}
+	  break;
+	[[unlikely]] case EventType::INVALIDATE:
+	{
+	  /* yikes, cache blown */
+	  ulk.lock();
+	  mdb_drop(*txn, b->dbi, 0); /* apparently, does not require
+				   * commit */
+	  b->flags &= ~Bucket::FLAG_FILLED;
+	}
+	  break;
+	default:
+	  /* unknown event */
+	  break;
+	}
       }
     }
     return 0;
