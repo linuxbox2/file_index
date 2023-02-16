@@ -232,6 +232,102 @@ TEST(BucketCache, TearDownBucketCacheMarker1)
   bc = nullptr;
 }
 
+TEST(BucketCache, SetupInotify1)
+{
+  int nfiles = 20;
+  std::string bucket{"inotify1"};
+
+  sf::path tp{sf::path{bucket_root} / bucket};
+  sf::remove_all(tp);
+  sf::create_directory(tp);
+
+  std::string fbase{"file_"};
+  for (int ix = 0; ix < nfiles; ++ix) {
+    sf::path ttp{tp / fmt::format("{}{}", fbase, ix)};
+    std::ofstream ofs(ttp);
+    ofs << "data for " << ttp << std::endl;
+    ofs.close();
+  }
+} /* SetupInotify1 */
+
+TEST(BucketCache, ListInotify1)
+{
+  std::string bucket{"inotify1"};
+  std::string marker{""};
+  std::vector<std::string> names;
+
+  auto f = [&](const std::string_view& k) -> int {
+    //std::cout << fmt::format("called back with {}", k) << std::endl;
+    names.push_back(std::string{k});
+    return 0;
+  };
+
+  bc->list_bucket(bucket, marker, f);
+  ASSERT_EQ(names.size(), 20);
+} /* ListInotify1 */
+
+TEST(BucketCache, UpdateInotify1)
+{
+  int nfiles = 10;
+  std::string bucket{"inotify1"};
+
+  sf::path tp{sf::path{bucket_root} / bucket};
+
+  /* add some */
+  std::string fbase{"upfile_"};
+  for (int ix = 0; ix < nfiles; ++ix) {
+    sf::path ttp{tp / fmt::format("{}{}", fbase, ix)};
+    std::ofstream ofs(ttp);
+    ofs << "data for " << ttp << std::endl;
+    ofs.close();
+  }
+
+  /* remove some */
+  fbase = "file_";
+  for (int ix = 5; ix < 10; ++ix) {
+    sf::path ttp{tp / fmt::format("{}{}", fbase, ix)};
+    sf::remove(ttp);
+  }
+} /* SetupInotify1 */
+
+TEST(BucketCache, List2Inotify1)
+{
+  std::string bucket{"inotify1"};
+  std::string marker{""};
+  std::vector<std::string> names;
+
+  auto f = [&](const std::string_view& k) -> int {
+    //std::cout << fmt::format("called back with {}", k) << std::endl;
+    names.push_back(std::string{k});
+    return 0;
+  };
+
+  bc->list_bucket(bucket, marker, f);
+  ASSERT_EQ(names.size(), 25);
+
+  /* check these */
+  sf::path tp{sf::path{bucket_root} / bucket};
+
+  std::string fbase{"upfile_"};
+  for (int ix = 0; ix < 10; ++ix) {
+    sf::path ttp{tp / fmt::format("{}{}", fbase, ix)};
+    ASSERT_TRUE(sf::exists(ttp));
+  }
+
+  /* remove some */
+  fbase = "file_";
+  for (int ix = 5; ix < 10; ++ix) {
+    sf::path ttp{tp / fmt::format("{}{}", fbase, ix)};
+    ASSERT_FALSE(sf::exists(ttp));
+  }
+} /* List2Inotify1 */
+
+TEST(BucketCache, TearDownInotify1)
+{
+  delete bc;
+  bc = nullptr;
+}
+
 int main (int argc, char *argv[])
 {
   ::testing::InitGoogleTest(&argc, argv);
