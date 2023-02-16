@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 using namespace file::listing;
+using namespace std::chrono_literals;
 
 namespace {
   std::string bucket_root = "bucket_root";
@@ -293,6 +294,10 @@ TEST(BucketCache, UpdateInotify1)
     sf::path ttp{tp / fmt::format("{}{}", fbase, ix)};
     sf::remove(ttp);
   }
+
+  /* this step is async, temporally consistent */
+  std::cout << "waiting 5s for cache sync" << std::endl;
+  std::this_thread::sleep_for(5s);
 } /* SetupInotify1 */
 
 TEST(BucketCache, List2Inotify1)
