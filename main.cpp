@@ -250,6 +250,11 @@ TEST(BucketCache, SetupInotify1)
   }
 } /* SetupInotify1 */
 
+TEST(BucketCache, InitBucketCacheInotify1)
+{
+  bc = new BucketCache{bucket_root, database_root};
+}
+
 TEST(BucketCache, ListInotify1)
 {
   std::string bucket{"inotify1"};
