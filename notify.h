@@ -79,8 +79,10 @@ namespace file::listing {
   class Inotify : public Notify
   {
     static constexpr uint32_t rd_size = 8192;
+    static constexpr uint32_t aw_mask = IN_ALL_EVENTS &
+      ~(IN_MOVE_SELF|IN_OPEN|IN_ACCESS|IN_ATTRIB|IN_CLOSE_WRITE|IN_CLOSE_NOWRITE|IN_MODIFY|IN_DELETE_SELF);
+
     static constexpr uint64_t sig_shutdown = std::numeric_limits<uint64_t>::max() - 0xdeadbeef;
-    static constexpr uint32_t aw_mask = IN_MOVE|IN_DONT_FOLLOW|IN_ONLYDIR|IN_MASK_ADD;
 
     class WatchRecord
     {
@@ -165,6 +167,7 @@ namespace file::listing {
 	       ptr += sizeof(struct inotify_event) + event->len) {
 	    event = reinterpret_cast<struct inotify_event*>(ptr);
 	    const auto& it = wd_callback_map.find(event->wd);
+	    std::cout << fmt::format("event! {}", event->name) << std::endl;
 	    if (it == wd_callback_map.end()) [[unlikely]] {
 	      /* non-destructive race, it happens */
 	      continue;
