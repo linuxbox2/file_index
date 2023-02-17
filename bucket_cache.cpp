@@ -28,7 +28,7 @@ bool Bucket::reclaim(const cohort::lru::ObjectFactory* newobj_fac) {
 	flags |= FLAG_DELETED;
 	bc->recycle_count++;
 
-	std::cout << fmt::format("reclaim {}!", name) << std::endl;
+	//std::cout << fmt::format("reclaim {}!", name) << std::endl;
 	bc->un->remove_watch(name);
 
 	/* XXX we MUST still be linked, so hook check is

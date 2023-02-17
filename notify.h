@@ -167,7 +167,7 @@ namespace file::listing {
 	       ptr += sizeof(struct inotify_event) + event->len) {
 	    event = reinterpret_cast<struct inotify_event*>(ptr);
 	    const auto& it = wd_callback_map.find(event->wd);
-	    std::cout << fmt::format("event! {}", event->name) << std::endl;
+	    //std::cout << fmt::format("event! {}", event->name) << std::endl;
 	    if (it == wd_callback_map.end()) [[unlikely]] {
 	      /* non-destructive race, it happens */
 	      continue;

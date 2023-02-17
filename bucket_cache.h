@@ -368,10 +368,10 @@ public:
       for (const auto& ev : evec) {
 	using EventType = Notifiable::EventType;
 	std::string_view nil{""};
-	std::cout << fmt::format("notify {} {}!",
+	/*std::cout << fmt::format("notify {} {}!",
 				 ev.name ? *ev.name : nil,
 				 uint32_t(ev.type))
-		  << std::endl;
+				 << std::endl; */
 	switch (ev.type)
 	{
 	case EventType::ADD:
@@ -400,8 +400,9 @@ public:
 	  /* unknown event */
 	  break;
 	}
-      }
-    }
+      } /* all events */
+      txn->commit();
+    } /* b */
     return 0;
   } /* notify */
   

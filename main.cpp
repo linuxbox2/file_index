@@ -296,8 +296,8 @@ TEST(BucketCache, UpdateInotify1)
   }
 
   /* this step is async, temporally consistent */
-  std::cout << "waiting 5s for cache sync" << std::endl;
-  std::this_thread::sleep_for(5s);
+  std::cout << "waiting 50ms for cache sync" << std::endl;
+  std::this_thread::sleep_for(50ms);
 } /* SetupInotify1 */
 
 TEST(BucketCache, List2Inotify1)
