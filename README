@@ -1,0 +1,14 @@
+/* build it */
+
+mkdir build; cd build
+
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make
+
+or
+
+cmake -DCMAKE_BUILD_TYPE=DEBUG -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-O0 -g3 -gdwarf-4" -DCMAKE_C_FLAGS="-O0 -g3 -gdwarf-4" ..
+make
+
+run as build/file_index from parent
+
